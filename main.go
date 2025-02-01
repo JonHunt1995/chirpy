@@ -1,16 +1,37 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
+	"time"
+
+	"chirpy.com/internal/database"
+	"github.com/google/uuid"
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	queries        *database.Queries
+	platform       string
+}
+
+type User struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
+}
+
+type Email struct {
+	Email string `json:"email"`
 }
 
 func healthHandler(w http.ResponseWriter, r *http.Request) {
@@ -43,6 +64,17 @@ func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
+	if cfg.platform != "dev" {
+		w.WriteHeader(403)
+		return
+	}
+
+	err := cfg.queries.DeleteAllUsers(r.Context())
+	if err != nil {
+		cfg.respondWithError(w, 500, "Failed to delete users")
+		return
+	}
+
 	cfg.fileserverHits.Store(0)
 	w.WriteHeader(200)
 }
@@ -74,13 +106,10 @@ func (cfg *apiConfig) respondWithJSON(w http.ResponseWriter, code int, payload i
 	w.Write(data)
 }
 
-func (cfg *apiConfig) chirpValidationHandler(w http.ResponseWriter, r *http.Request) {
-	type parameters struct {
-		Body string `json:"body"`
-	}
+func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	decoder := json.NewDecoder(r.Body)
-	params := parameters{}
+	params := CreateChirpRequest{}
 	err := decoder.Decode(&params)
 	// Respond with Error if problems marshalling JSON
 	if err != nil {
@@ -97,10 +126,29 @@ func (cfg *apiConfig) chirpValidationHandler(w http.ResponseWriter, r *http.Requ
 	}
 	// Use removeProfanity to clean the Chirp Body
 	cleanedBody := removeProfanity(params.Body)
-	respBody := CleanedChirp{
-		CleanedBody: cleanedBody,
+	// Chirp is valid if past this point
+	chirp, err := cfg.queries.CreateChirp(r.Context(), database.CreateChirpParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Body:      cleanedBody,
+		UserID: uuid.NullUUID{
+			UUID:  params.UserID,
+			Valid: true,
+		},
+	})
+	if err != nil {
+		cfg.respondWithError(w, 500, "Failed to create chirp")
+		return
 	}
-	cfg.respondWithJSON(w, 200, respBody)
+	chirpResponse := Chirp{
+		ID:        chirp.ID,
+		CreatedAt: chirp.CreatedAt,
+		UpdatedAt: chirp.UpdatedAt,
+		Body:      chirp.Body,
+		UserID:    chirp.UserID.UUID,
+	}
+	cfg.respondWithJSON(w, 201, chirpResponse)
 	return
 }
 
@@ -122,8 +170,50 @@ func removeProfanity(msg string) string {
 	return cleanedMsg
 }
 
+func (cfg *apiConfig) userHandler(w http.ResponseWriter, r *http.Request) {
+	decoder := json.NewDecoder(r.Body)
+	params := Email{}
+	err := decoder.Decode(&params)
+	// Respond with Error if problems marshalling JSON
+	if err != nil {
+		msg := fmt.Sprintf("Error marshalling JSON: %s", err)
+		cfg.respondWithError(w, 500, msg)
+		return
+	}
+	dbUser, err := cfg.queries.CreateUser(r.Context(), params.Email)
+	if err != nil {
+		cfg.respondWithError(w, 500, "Failed to create user")
+		return
+	}
+	user := User{
+		ID:        dbUser.ID,
+		CreatedAt: dbUser.CreatedAt,
+		UpdatedAt: dbUser.UpdatedAt,
+		Email:     dbUser.Email,
+	}
+	cfg.respondWithJSON(w, 201, user)
+	return
+}
+
 func main() {
-	cfg := &apiConfig{}
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatalf("Connection to database failed with error: %v. Check your DB_URL (%s)", err, dbURL)
+	}
+	dbQueries := database.New(db)
+	if err := db.Ping(); err != nil {
+		log.Fatalf("Could not connect to the database: %v", err)
+	}
+	defer db.Close()
+	cfg := &apiConfig{
+		queries:  dbQueries,
+		platform: os.Getenv("PLATFORM"),
+	}
 	const filepathRoot = "."
 	const port = "8080"
 	mux := http.NewServeMux()
@@ -134,11 +224,12 @@ func main() {
 		Handler: mux,
 	}
 
-	mux.HandleFunc("/api/healthz", healthHandler)
+	mux.HandleFunc("GET /api/healthz", healthHandler)
+	mux.HandleFunc("POST /api/users", cfg.userHandler)
+	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
+	mux.HandleFunc("POST /admin/reset", cfg.resetHandler)
+	mux.HandleFunc("POST /api/chirps", cfg.chirpsHandler)
 
-	mux.HandleFunc("/admin/metrics", cfg.metricsHandler)
-	mux.HandleFunc("/admin/reset", cfg.resetHandler)
-	mux.HandleFunc("/api/validate_chirp", cfg.chirpValidationHandler)
 	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
 	log.Fatal(srv.ListenAndServe())
 }

@@ -106,52 +106,6 @@ func (cfg *apiConfig) respondWithJSON(w http.ResponseWriter, code int, payload i
 	w.Write(data)
 }
 
-func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	decoder := json.NewDecoder(r.Body)
-	params := CreateChirpRequest{}
-	err := decoder.Decode(&params)
-	// Respond with Error if problems marshalling JSON
-	if err != nil {
-		msg := fmt.Sprintf("Error marshalling JSON: %s", err)
-		cfg.respondWithError(w, 500, msg)
-		return
-	}
-	// Respond with Error if message is > 140 characters
-	if len(params.Body) > 140 {
-		statusCode := 400
-		msg := "Chirp is too long"
-		cfg.respondWithError(w, statusCode, msg)
-		return
-	}
-	// Use removeProfanity to clean the Chirp Body
-	cleanedBody := removeProfanity(params.Body)
-	// Chirp is valid if past this point
-	chirp, err := cfg.queries.CreateChirp(r.Context(), database.CreateChirpParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
-		Body:      cleanedBody,
-		UserID: uuid.NullUUID{
-			UUID:  params.UserID,
-			Valid: true,
-		},
-	})
-	if err != nil {
-		cfg.respondWithError(w, 500, "Failed to create chirp")
-		return
-	}
-	chirpResponse := Chirp{
-		ID:        chirp.ID,
-		CreatedAt: chirp.CreatedAt,
-		UpdatedAt: chirp.UpdatedAt,
-		Body:      chirp.Body,
-		UserID:    chirp.UserID.UUID,
-	}
-	cfg.respondWithJSON(w, 201, chirpResponse)
-	return
-}
-
 func removeProfanity(msg string) string {
 	badWords := map[string]string{
 		"kerfuffle": "****",
@@ -168,31 +122,6 @@ func removeProfanity(msg string) string {
 	}
 	cleanedMsg := strings.Join(words, " ")
 	return cleanedMsg
-}
-
-func (cfg *apiConfig) userHandler(w http.ResponseWriter, r *http.Request) {
-	decoder := json.NewDecoder(r.Body)
-	params := Email{}
-	err := decoder.Decode(&params)
-	// Respond with Error if problems marshalling JSON
-	if err != nil {
-		msg := fmt.Sprintf("Error marshalling JSON: %s", err)
-		cfg.respondWithError(w, 500, msg)
-		return
-	}
-	dbUser, err := cfg.queries.CreateUser(r.Context(), params.Email)
-	if err != nil {
-		cfg.respondWithError(w, 500, "Failed to create user")
-		return
-	}
-	user := User{
-		ID:        dbUser.ID,
-		CreatedAt: dbUser.CreatedAt,
-		UpdatedAt: dbUser.UpdatedAt,
-		Email:     dbUser.Email,
-	}
-	cfg.respondWithJSON(w, 201, user)
-	return
 }
 
 func main() {
@@ -229,6 +158,7 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
 	mux.HandleFunc("POST /admin/reset", cfg.resetHandler)
 	mux.HandleFunc("POST /api/chirps", cfg.chirpsHandler)
+	mux.HandleFunc("GET /api/chirps", cfg.getAllChirpsHandler)
 
 	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
 	log.Fatal(srv.ListenAndServe())

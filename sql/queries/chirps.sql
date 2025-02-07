@@ -17,5 +17,10 @@ SELECT *
 FROM chirps
 ORDER BY created_at ASC;
 
+-- name: GetChirp :one
+SELECT *
+FROM chirps
+WHERE ID = $1;
+
 -- down.sql
 DROP TABLE chirps;

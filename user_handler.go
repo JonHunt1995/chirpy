@@ -4,11 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"chirpy.com/internal/auth"
+	"chirpy.com/internal/database"
 )
 
 func (cfg *apiConfig) userHandler(w http.ResponseWriter, r *http.Request) {
+	type Parameters struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
 	decoder := json.NewDecoder(r.Body)
-	params := Email{}
+	params := Parameters{}
 	err := decoder.Decode(&params)
 	// Respond with Error if problems marshalling JSON
 	if err != nil {
@@ -16,11 +24,21 @@ func (cfg *apiConfig) userHandler(w http.ResponseWriter, r *http.Request) {
 		cfg.respondWithError(w, 500, msg)
 		return
 	}
-	dbUser, err := cfg.queries.CreateUser(r.Context(), params.Email)
+	hash, err := auth.HashPassword(params.Password)
+	if err != nil {
+		cfg.respondWithError(w, 500, "Failed to hash password")
+		return
+	}
+	dbUser, err := cfg.queries.CreateUser(r.Context(), database.CreateUserParams{
+		Email:          params.Email,
+		HashedPassword: hash,
+	})
+
 	if err != nil {
 		cfg.respondWithError(w, 500, "Failed to create user")
 		return
 	}
+
 	user := User{
 		ID:        dbUser.ID,
 		CreatedAt: dbUser.CreatedAt,

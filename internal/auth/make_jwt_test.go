@@ -30,7 +30,6 @@ func TestValidJWT(t *testing.T) {
 	if got != want {
 		t.Errorf("got %v, want %v", got, want)
 	}
-
 }
 
 func TestExpiredJWT(t *testing.T) {

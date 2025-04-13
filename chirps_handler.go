@@ -3,18 +3,36 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"time"
 
+	"chirpy.com/internal/auth"
 	"chirpy.com/internal/database"
 	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 )
 
 func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Error loading .env file")
+	}
+	// Ensure That User Has Valid JWT
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		cfg.respondWithError(w, http.StatusUnauthorized, "Missing or invalid token")
+	}
+	userID, err := auth.ValidateJWT(token, os.Getenv("SECRET"))
+	if err != nil {
+		cfg.respondWithError(w, http.StatusUnauthorized, "Token is invalid")
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	decoder := json.NewDecoder(r.Body)
 	params := CreateChirpRequest{}
-	err := decoder.Decode(&params)
+	err = decoder.Decode(&params)
 	// Respond with Error if problems marshalling JSON
 	if err != nil {
 		msg := fmt.Sprintf("Error marshalling JSON: %s", err)
@@ -37,9 +55,9 @@ func (cfg *apiConfig) chirpsHandler(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: time.Now(),
 		Body:      cleanedBody,
 		UserID: uuid.NullUUID{
-			UUID:  params.UserID,
+			UUID:  userID, // from JWT validation
 			Valid: true,
-		},
+	},
 	})
 	if err != nil {
 		cfg.respondWithError(w, 500, "Failed to create chirp")

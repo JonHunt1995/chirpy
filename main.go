@@ -21,6 +21,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	queries        *database.Queries
 	platform       string
+	jwtSecret      string
 }
 
 type User struct {
@@ -28,6 +29,7 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	Token     string    `json:"token"`
 }
 
 type Email struct {
@@ -140,8 +142,9 @@ func main() {
 	}
 	defer db.Close()
 	cfg := &apiConfig{
-		queries:  dbQueries,
-		platform: os.Getenv("PLATFORM"),
+		queries:   dbQueries,
+		platform:  os.Getenv("PLATFORM"),
+		jwtSecret: os.Getenv("SECRET"),
 	}
 	const filepathRoot = "."
 	const port = "8080"

@@ -8,13 +8,13 @@ import (
 	"time"
 
 	"chirpy.com/internal/auth"
+	"chirpy.com/internal/database"
 )
 
 func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Email     string `json:"email"`
-		Password  string `json:"password"`
-		ExpiresAt int    `json:"expires_in_seconds"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 	decoder := json.NewDecoder(r.Body)
 	req := parameters{}
@@ -37,19 +37,40 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	expireTime := 3600
-	if req.ExpiresAt > 0 && req.ExpiresAt <= 3600 {
-		expireTime = req.ExpiresAt
-	}
-	token, err := auth.MakeJWT(dbUser.ID, os.Getenv("SECRET"), time.Second * time.Duration(expireTime))
+
+	token, err := auth.MakeJWT(dbUser.ID, os.Getenv("SECRET"), time.Second*time.Duration(expireTime))
 	if err != nil {
-		cfg.respondWithError(w, 500, "Unable to make JWT")
+		cfg.respondWithError(w, 500, "Unable to make Access Token")
+		return
 	}
+	refreshToken, err := auth.MakeRefreshToken()
+	if err != nil {
+		cfg.respondWithError(w, 500, "Unable to make Refresh Token")
+		return
+	}
+
 	user := User{
-		ID:        dbUser.ID,
-		CreatedAt: dbUser.CreatedAt,
-		UpdatedAt: dbUser.UpdatedAt,
-		Email:     dbUser.Email,
-		Token: token,
+		ID:           dbUser.ID,
+		CreatedAt:    dbUser.CreatedAt,
+		UpdatedAt:    dbUser.UpdatedAt,
+		Email:        dbUser.Email,
+		Token:        token,
+		RefreshToken: refreshToken,
 	}
+
+	err = cfg.queries.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
+		Token:     refreshToken,
+		UserID:    user.ID,
+		ExpiresAt: time.Now().AddDate(0, 0, 60),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	})
+
+	if err != nil {
+		cfg.respondWithError(w, 500, "Unable to add refresh token to database")
+		return
+	}
+
 	cfg.respondWithJSON(w, 200, user)
+	return
 }

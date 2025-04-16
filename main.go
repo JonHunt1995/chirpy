@@ -30,6 +30,7 @@ type User struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
 	Token     string    `json:"token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 type Email struct {
@@ -164,6 +165,7 @@ func main() {
 	mux.HandleFunc("GET /api/chirps", cfg.getAllChirpsHandler)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.getChirpHandler)
 	mux.HandleFunc("POST /api/login", cfg.loginHandler)
+	mux.HandleFunc("POST /api/refresh", cfg.refreshHandler)
 
 	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
 	log.Fatal(srv.ListenAndServe())

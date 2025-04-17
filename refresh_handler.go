@@ -50,6 +50,3 @@ func (cfg *apiConfig) refreshHandler(w http.ResponseWriter, r *http.Request) {
 		Token: accessToken,
 	})
 }
-```
-
-```

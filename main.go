@@ -25,12 +25,12 @@ type apiConfig struct {
 }
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-	Token     string    `json:"token"`
-	RefreshToken string `json:"refresh_token"`
+	ID           uuid.UUID `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Email        string    `json:"email"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refresh_token"`
 }
 
 type Email struct {
@@ -166,6 +166,7 @@ func main() {
 	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.getChirpHandler)
 	mux.HandleFunc("POST /api/login", cfg.loginHandler)
 	mux.HandleFunc("POST /api/refresh", cfg.refreshHandler)
+	mux.HandleFunc("POST /api/revoke", cfg.revokeHandler)
 
 	log.Printf("Serving files from %s on port: %s\n", filepathRoot, port)
 	log.Fatal(srv.ListenAndServe())

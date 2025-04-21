@@ -159,6 +159,7 @@ func main() {
 
 	mux.HandleFunc("GET /api/healthz", healthHandler)
 	mux.HandleFunc("POST /api/users", cfg.userHandler)
+	mux.HandleFunc("PUT /api/users", cfg.updateUserHandler)
 	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
 	mux.HandleFunc("POST /admin/reset", cfg.resetHandler)
 	mux.HandleFunc("POST /api/chirps", cfg.chirpsHandler)

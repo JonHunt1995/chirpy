@@ -14,8 +14,20 @@ import (
 )
 
 const createRefreshToken = `-- name: CreateRefreshToken :exec
-INSERT INTO refresh_tokens (token, user_id, expires_at, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO refresh_tokens (
+  token, 
+  user_id, 
+  expires_at, 
+  created_at, 
+  updated_at
+) VALUES (
+    $1, 
+    $2::uuid, 
+    $3, 
+    $4, 
+    $5
+    )
+  RETURNING token, created_at, updated_at, user_id, expires_at, revoked_at
 `
 
 type CreateRefreshTokenParams struct {

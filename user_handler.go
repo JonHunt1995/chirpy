@@ -46,5 +46,4 @@ func (cfg *apiConfig) userHandler(w http.ResponseWriter, r *http.Request) {
 		Email:     dbUser.Email,
 	}
 	cfg.respondWithJSON(w, 201, user)
-	return
 }

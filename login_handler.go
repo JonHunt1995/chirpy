@@ -72,5 +72,4 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cfg.respondWithJSON(w, 200, user)
-	return
 }

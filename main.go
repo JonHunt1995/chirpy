@@ -165,6 +165,7 @@ func main() {
 	mux.HandleFunc("POST /api/chirps", cfg.chirpsHandler)
 	mux.HandleFunc("GET /api/chirps", cfg.getAllChirpsHandler)
 	mux.HandleFunc("GET /api/chirps/{chirpID}", cfg.getChirpHandler)
+	mux.HandleFunc("DELETE /api/chirps/{chirpID}", cfg.deleteChirpHandler)
 	mux.HandleFunc("POST /api/login", cfg.loginHandler)
 	mux.HandleFunc("POST /api/refresh", cfg.refreshHandler)
 	mux.HandleFunc("POST /api/revoke", cfg.revokeHandler)

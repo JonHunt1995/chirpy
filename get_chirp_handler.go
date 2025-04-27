@@ -17,7 +17,7 @@ func (cfg *apiConfig) getChirpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	dbChirp, err := cfg.queries.GetChirp(r.Context(), id)
 	if err != nil {
-		cfg.respondWithError(w, http.StatusInternalServerError, "chirp unable to be fetched")
+		cfg.respondWithError(w, 404, "chirp unable to be fetched")
 		return
 	}
 	// Map DB Query to a Go Struct

@@ -22,5 +22,12 @@ SET
 WHERE id = $1
 RETURNING *;
 
+-- name: UpgradeUser :one
+UPDATE users
+SET 
+    is_chirpy_red = TRUE
+WHERE id = $1
+RETURNING *;
+
 -- name: DeleteAllUsers :exec
 DELETE FROM users;

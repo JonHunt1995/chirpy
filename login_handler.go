@@ -56,6 +56,7 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		Email:        dbUser.Email,
 		Token:        token,
 		RefreshToken: refreshToken,
+		IsChirpyRed: dbUser.IsChirpyRed,
 	}
 
 	err = cfg.queries.CreateRefreshToken(r.Context(), database.CreateRefreshTokenParams{
@@ -64,6 +65,7 @@ func (cfg *apiConfig) loginHandler(w http.ResponseWriter, r *http.Request) {
 		ExpiresAt: time.Now().AddDate(0, 0, 60),
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
+		
 	})
 
 	if err != nil {

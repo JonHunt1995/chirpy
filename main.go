@@ -22,6 +22,7 @@ type apiConfig struct {
 	queries        *database.Queries
 	platform       string
 	jwtSecret      string
+	apiKey string
 }
 
 type User struct {
@@ -147,6 +148,7 @@ func main() {
 		queries:   dbQueries,
 		platform:  os.Getenv("PLATFORM"),
 		jwtSecret: os.Getenv("SECRET"),
+		apiKey: os.Getenv("POLKA_KEY"),
 	}
 	const filepathRoot = "."
 	const port = "8080"

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 
+	"chirpy.com/internal/auth"
 	"github.com/google/uuid"
 )
 
@@ -22,13 +24,25 @@ func (cfg *apiConfig) polkaHandler(w http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&req)
 	if err != nil {
 		msg := fmt.Sprintf("Error marshalling JSON: %s", err)
-		cfg.respondWithError(w, 500, msg)
+		cfg.respondWithError(w, 401, msg)
 		return
 	}
 
 	if req.Event != "user.upgraded" {
 		w.WriteHeader(204)
 		return
+	}
+
+	apiKey, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		msg := fmt.Sprintf("Error extracting api key from header: %s", err)
+		cfg.respondWithError(w, 401, msg)
+		return
+	}
+
+	if apiKey != os.Getenv("POLKA_KEY") {
+		w.WriteHeader(401)
+		return 
 	}
 
 	userUUID, err := uuid.Parse(req.Data.UserID)

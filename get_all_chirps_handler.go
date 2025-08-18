@@ -3,15 +3,29 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+
+	"chirpy.com/internal/database"
 )
 
 func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, r *http.Request) {
-	// Querying the database for all Chirps
-	dbChirps, err := cfg.queries.GetAllChirps(r.Context())
-	if err != nil {
-		cfg.respondWithError(w, http.StatusInternalServerError, "Failed to fetch chirps")
-		return
+	// Extract Author ID Query Param
+	var dbChirps []database.Chirp;
+	authorId := r.URL.Query().Get("author_id")
+	// Querying the database for Chirps
+	if len(authorId) == 0 {
+		dbChirps, err := cfg.queries.GetAllChirps(r.Context())
+		if err != nil {
+			cfg.respondWithError(w, http.StatusInternalServerError, "Failed to fetch chirps")
+			return
+		}
+	} else {
+		dbChirps, err := cfg.queries.GetAllChirps(r.Context())
+		if err != nil {
+			cfg.respondWithError(w, http.StatusInternalServerError, "Failed to fetch chirps")
+			return
+		}
 	}
+	
 	// Explicitly map SQLC chirps to custom Chirp Struct
 	chirps := make([]Chirp, len(dbChirps))
 	for i, dbChirp := range dbChirps {

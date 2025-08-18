@@ -5,21 +5,28 @@ import (
 	"net/http"
 
 	"chirpy.com/internal/database"
+	"github.com/google/uuid"
 )
 
 func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, r *http.Request) {
 	// Extract Author ID Query Param
-	var dbChirps []database.Chirp;
+	var dbChirps []database.Chirp
+	var err error
 	authorId := r.URL.Query().Get("author_id")
 	// Querying the database for Chirps
 	if len(authorId) == 0 {
-		dbChirps, err := cfg.queries.GetAllChirps(r.Context())
+		dbChirps, err = cfg.queries.GetAllChirps(r.Context())
 		if err != nil {
 			cfg.respondWithError(w, http.StatusInternalServerError, "Failed to fetch chirps")
 			return
 		}
 	} else {
-		dbChirps, err := cfg.queries.GetAllChirps(r.Context())
+		author_uuid, err := uuid.Parse(authorId)
+		if err != nil {
+			cfg.respondWithError(w, http.StatusInternalServerError, "Failed to parse author id")
+			return
+		}
+		dbChirps, err = cfg.queries.GetAllChirpsFromAuthor(r.Context(), uuid.NullUUID{UUID: author_uuid, Valid: true})
 		if err != nil {
 			cfg.respondWithError(w, http.StatusInternalServerError, "Failed to fetch chirps")
 			return

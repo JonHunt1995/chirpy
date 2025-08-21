@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"net/http"
+	"slices"
 
 	"chirpy.com/internal/database"
 	"github.com/google/uuid"
@@ -13,6 +14,7 @@ func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, r *http.Request
 	var dbChirps []database.Chirp
 	var err error
 	authorId := r.URL.Query().Get("author_id")
+	sortedBy := r.URL.Query().Get("sort")
 	// Querying the database for Chirps
 	if len(authorId) == 0 {
 		dbChirps, err = cfg.queries.GetAllChirps(r.Context())
@@ -44,6 +46,20 @@ func (cfg *apiConfig) getAllChirpsHandler(w http.ResponseWriter, r *http.Request
 			UserID:    dbChirp.UserID.UUID,
 		}
 	}
+
+	// Sort Chirps if Sort in Query
+	
+	switch(sortedBy) {
+	case "desc":
+		slices.SortStableFunc(chirps, func(a, b Chirp) int {
+		return b.CreatedAt.Compare(a.CreatedAt)
+		})
+	default:
+		slices.SortStableFunc(chirps, func(a, b Chirp) int {
+			return a.CreatedAt.Compare(b.CreatedAt)
+		})
+	}
+	
 	// Set headers for JSON response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
